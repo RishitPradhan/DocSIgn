@@ -128,6 +128,35 @@ export const SignatureEditor: React.FC<SignatureEditorProps> = ({ document, onSa
     setIsDragging(false)
   }
 
+  // Add touch event handlers for mobile dragging
+  const handleTouchStart = (e: React.TouchEvent, signature: Signature) => {
+    e.preventDefault()
+    setSelectedSignature(signature)
+    setIsDragging(true)
+    const rect = pdfContainerRef.current?.getBoundingClientRect()
+    if (rect) {
+      const touch = e.touches[0]
+      setDragOffset({
+        x: touch.clientX - rect.left - signature.x,
+        y: touch.clientY - rect.top - signature.y
+      })
+    }
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging || !selectedSignature || !pdfContainerRef.current) return
+    const rect = pdfContainerRef.current.getBoundingClientRect()
+    const fontSize = selectedSignature.fontSize
+    const touch = e.touches[0]
+    const newX = clamp(touch.clientX - rect.left - dragOffset.x, 0, rect.width - fontSize)
+    const newY = clamp(touch.clientY - rect.top - dragOffset.y, 0, rect.height - fontSize)
+    updateSignature(selectedSignature.id, { x: newX, y: newY })
+  }
+
+  const handleTouchEnd = () => {
+    setIsDragging(false)
+  }
+
   const handleSave = async () => {
     if (signatures.length === 0) {
       alert('Please add at least one signature')
@@ -327,38 +356,45 @@ export const SignatureEditor: React.FC<SignatureEditorProps> = ({ document, onSa
       <div className="flex flex-col lg:flex-row gap-4 sm:gap-8">
         {/* PDF Preview and Overlay */}
         <div className="flex-1 flex flex-col items-center">
-          <div ref={pdfContainerRef} className="relative w-full max-w-xs sm:max-w-md md:max-w-lg lg:max-w-xl xl:max-w-2xl aspect-[2/3] bg-gray-100 border border-gray-200 rounded-lg overflow-hidden">
+          <div ref={pdfContainerRef} className="relative w-full max-w-xs sm:max-w-md md:max-w-lg lg:max-w-xl xl:max-w-2xl aspect-[2/3] bg-gray-100 border border-gray-200 rounded-lg overflow-hidden"
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+          >
             {/* PDF and signature overlays go here */}
             <PDFViewer url={document.original_url} title={document.name} width={500} height={600} />
             {/* Signature Overlay - absolutely positioned over the PDF */}
             <div
               className="absolute top-0 left-0 w-full h-full pointer-events-none"
               style={{ zIndex: 10 }}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={handleMouseUp}
             >
-              {signatures.filter(sig => sig.page === selectedPage).map(signature => (
+              {signatures.filter(sig => sig.page === selectedPage).map(sig => (
                 <div
-                  key={signature.id}
+                  key={sig.id}
+                  className="absolute cursor-move select-none pointer-events-auto"
                   style={{
-                    position: 'absolute',
-                    left: signature.x,
-                    top: signature.y,
-                    fontFamily: signature.font,
-                    fontSize: signature.fontSize,
-                    color: signature.color,
-                    cursor: isDragging && selectedSignature?.id === signature.id ? 'grabbing' : 'move',
+                    left: sig.x,
+                    top: sig.y,
+                    fontSize: sig.fontSize,
+                    fontFamily: sig.font,
+                    color: sig.color,
                     userSelect: 'none',
-                    zIndex: selectedSignature?.id === signature.id ? 11 : 10,
-                    border: selectedSignature?.id === signature.id ? '2px dashed #3b82f6' : 'none',
-                    padding: '2px',
-                    backgroundColor: selectedSignature?.id === signature.id ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
-                    pointerEvents: 'auto',
+                    zIndex: 20,
                   }}
-                  onMouseDown={(e) => handleMouseDown(e, signature)}
+                  onMouseDown={e => handleMouseDown(e, sig)}
+                  onTouchStart={e => handleTouchStart(e, sig)}
                 >
-                  {signature.text}
+                  {sig.text}
+                  <button
+                    type="button"
+                    className="ml-2 text-xs text-red-500 bg-white bg-opacity-80 rounded-full px-1 py-0.5 shadow pointer-events-auto"
+                    style={{ zIndex: 30 }}
+                    onClick={() => removeSignature(sig.id)}
+                  >
+                    <Trash2 className="inline h-3 w-3" />
+                  </button>
                 </div>
               ))}
             </div>
