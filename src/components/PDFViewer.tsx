@@ -11,6 +11,9 @@ interface PDFViewerProps {
   width?: number
   height?: number
   onBack?: () => void
+  pageNumber?: number
+  setPageNumber?: (page: number) => void
+  setNumPages?: (num: number) => void
 }
 
 export const PDFViewer: React.FC<PDFViewerProps> = ({ 
@@ -18,12 +21,20 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
   title = "PDF Document", 
   width = 400, 
   height = 600, 
-  onBack 
+  onBack,
+  pageNumber: controlledPageNumber,
+  setPageNumber: controlledSetPageNumber,
+  setNumPages: controlledSetNumPages
 }) => {
-  const [numPages, setNumPages] = useState<number>(0)
-  const [pageNumber, setPageNumber] = useState<number>(1)
+  const [internalNumPages, setInternalNumPages] = useState<number>(0)
+  const [internalPageNumber, setInternalPageNumber] = useState<number>(1)
   const [pdfError, setPdfError] = useState<string>('')
   const [loading, setLoading] = useState(true)
+
+  const numPages = controlledSetNumPages ? undefined : internalNumPages
+  const pageNumber = controlledPageNumber !== undefined ? controlledPageNumber : internalPageNumber
+  const setPageNumber = controlledSetPageNumber || setInternalPageNumber
+  const setNumPages = controlledSetNumPages || setInternalNumPages
 
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
     console.log('PDF loaded successfully:', { numPages, url })
@@ -40,11 +51,19 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
   }
 
   const goToPrevPage = () => {
-    setPageNumber(prev => Math.max(prev - 1, 1))
+    if (controlledSetPageNumber) {
+      controlledSetPageNumber(Math.max((controlledPageNumber || 1) - 1, 1))
+    } else {
+      setInternalPageNumber(prev => Math.max(prev - 1, 1))
+    }
   }
 
   const goToNextPage = () => {
-    setPageNumber(prev => Math.min(prev + 1, numPages))
+    if (controlledSetPageNumber) {
+      controlledSetPageNumber(Math.min((controlledPageNumber || 1) + 1, numPages || 1))
+    } else {
+      setInternalPageNumber(prev => Math.min(prev + 1, numPages || 1))
+    }
   }
 
   const openInNewTab = () => {
@@ -61,7 +80,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
   }
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden w-full max-w-full max-h-[80vh] overflow-y-auto">
+    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden w-full max-w-full">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 border-b border-gray-200 bg-gray-50 gap-2 sm:gap-0">
         <div className="flex items-center space-x-2">
@@ -127,8 +146,8 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
           </div>
         ) : (
           <div>
-            {/* Page navigation */}
-            {numPages > 1 && (
+            {/* Page navigation (only show if not controlled by parent) */}
+            {!controlledSetPageNumber && numPages && numPages > 1 && (
               <div className="flex flex-col sm:flex-row items-center justify-center space-y-2 sm:space-y-0 sm:space-x-4 p-3 sm:p-4 bg-gray-50 border-b border-gray-200">
                 <button
                   onClick={goToPrevPage}

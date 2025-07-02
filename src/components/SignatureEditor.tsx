@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react"
+import React, { useState, useRef, useEffect } from "react"
 import { Document, supabase } from '../lib/supabase'
 import { Type, X, Save, Move, Trash2 } from 'lucide-react'
 import { PDFViewer } from './PDFViewer'
@@ -60,8 +60,14 @@ export const SignatureEditor: React.FC<SignatureEditorProps> = ({ document, onSa
   const [numPages, setNumPages] = useState(1)
 
   const pdfContainerRef = useRef<HTMLDivElement>(null)
+  const pdfContentRef = useRef<HTMLDivElement>(null)
+  const [pdfContentHeight, setPdfContentHeight] = useState<number>(0)
 
-  const yOffset = 110; // Adjust this value for fine-tuning Y alignment
+  useEffect(() => {
+    if (pdfContentRef.current) {
+      setPdfContentHeight(pdfContentRef.current.scrollHeight)
+    }
+  }, [selectedPage, signatures])
 
   const addSignature = () => {
     if (!signatureText.trim()) return
@@ -189,23 +195,25 @@ export const SignatureEditor: React.FC<SignatureEditorProps> = ({ document, onSa
         const page = pdfDoc.getPage(sig.page - 1)
         const pageHeight = page.getHeight()
         const pageWidth = page.getWidth()
+        // Calculate scaling ratios
         const scaleX = pageWidth / overlayWidth
         const scaleY = pageHeight / overlayHeight
+        // Use the scaling ratios to map overlay coordinates to PDF coordinates
         const scaledX = sig.x * scaleX
-        const scaledY = pageHeight - (sig.y * scaleY) - (sig.fontSize / 2) + yOffset
+        // PDF-lib's y=0 is at the bottom, so we need to flip the Y axis
+        const scaledY = pageHeight - (sig.y * scaleY) - (sig.fontSize * scaleY)
         const { r, g, b } = hexToRgb(sig.color)
         let pdfFont = font; // fallback to standard font
         if (FONT_FILE_MAP[sig.font]) {
           const fontUrl = FONT_FILE_MAP[sig.font]!
           const response = await fetch(fontUrl)
           const fontBytes = await response.arrayBuffer()
-          console.log('Font fetch:', fontUrl, 'Status:', response.status, 'Bytes:', fontBytes.byteLength)
           pdfFont = await pdfDoc.embedFont(fontBytes)
         }
         page.drawText(sig.text, {
           x: scaledX,
           y: scaledY,
-          size: sig.fontSize,
+          size: sig.fontSize * scaleY,
           color: rgb(r, g, b),
           font: pdfFont,
         })
@@ -277,7 +285,7 @@ export const SignatureEditor: React.FC<SignatureEditorProps> = ({ document, onSa
       const scaleX = pageWidth / overlayWidth
       const scaleY = pageHeight / overlayHeight
       const scaledX = sig.x * scaleX
-      const scaledY = pageHeight - (sig.y * scaleY) - (sig.fontSize / 2) + yOffset
+      const scaledY = pageHeight - (sig.y * scaleY) - (sig.fontSize / 2)
       const { r, g, b } = hexToRgb(sig.color)
       console.log(`Overlay size: ${overlayWidth}x${overlayHeight}, PDF page size: ${pageWidth}x${pageHeight}`)
       console.log(`Signature '${sig.text}' overlay (x: ${sig.x}, y: ${sig.y}), scaled (x: ${scaledX}, y: ${scaledY}), fontSize: ${sig.fontSize}, color: ${sig.color}`)
@@ -341,65 +349,89 @@ export const SignatureEditor: React.FC<SignatureEditorProps> = ({ document, onSa
   }
 
   return (
-    <div className="w-full max-w-4xl mx-auto bg-white rounded-xl shadow-lg border border-gray-100 p-3 sm:p-6 space-y-4 sm:space-y-8">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
-        <div className="flex items-center space-x-2">
-          <Type className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
-          <h2 className="text-lg sm:text-2xl font-bold text-gray-900">Add Signature</h2>
-        </div>
-        <button
-          onClick={onCancel}
-          className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors self-end sm:self-auto"
-        >
-          <X className="h-6 w-6" />
-        </button>
-      </div>
-      <div className="flex flex-col lg:flex-row gap-4 sm:gap-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 py-6 px-2 sm:px-6 flex items-center justify-center">
+      <div className="w-full max-w-5xl mx-auto bg-white rounded-2xl shadow-2xl border border-gray-100 p-2 sm:p-6 space-y-6 sm:space-y-10 flex flex-col lg:flex-row gap-8">
         {/* PDF Preview and Overlay */}
         <div className="flex-1 flex flex-col items-center">
-          <div ref={pdfContainerRef} className="relative w-full max-w-xs sm:max-w-md md:max-w-lg lg:max-w-xl xl:max-w-2xl aspect-[2/3] bg-gray-100 border border-gray-200 rounded-lg overflow-hidden max-h-[80vh] overflow-y-auto">
-            {/* PDF and signature overlays go here */}
-            <PDFViewer url={document.original_url} title={document.name} width={500} height={600} />
-            {/* Signature Overlay - absolutely positioned over the PDF */}
-            <div
-              className="absolute top-0 left-0 w-full h-full pointer-events-none"
-              style={{ zIndex: 10 }}
-            >
-              {signatures.filter(sig => sig.page === selectedPage).map(sig => (
+          <div className="w-full max-w-3xl">
+            {/* Scrollable wrapper */}
+            <div className="w-full max-h-[80vh] overflow-y-auto bg-gray-100 border border-gray-200 rounded-xl shadow-md" style={{ position: 'relative' }}>
+              {/* Relative container with PDF and overlay as siblings */}
+              <div
+                className="relative min-h-[500px] min-w-[320px] sm:min-h-[600px] sm:min-w-[400px] w-full"
+                style={{ height: Math.max(pdfContentHeight, 500) }}
+              >
+                {/* PDF content */}
+                <div ref={pdfContentRef} className="flex justify-center items-center">
+                  <PDFViewer url={document.original_url} title={document.name} width={undefined} height={undefined} pageNumber={selectedPage} setNumPages={setNumPages} />
+                </div>
+                {/* Signature Overlay - absolutely positioned over the full PDF content */}
                 <div
-                  key={sig.id}
-                  className="absolute cursor-move select-none pointer-events-auto"
-                  style={{
-                    left: sig.x,
-                    top: sig.y,
-                    fontSize: sig.fontSize,
-                    fontFamily: sig.font,
-                    color: sig.color,
-                    userSelect: 'none',
-                    zIndex: 20,
-                    touchAction: 'none',
-                  }}
-                  onMouseDown={e => handleMouseDown(e, sig)}
-                  onTouchStart={e => handleTouchStart(e, sig)}
+                  className="absolute top-0 left-0 w-full pointer-events-none"
+                  style={{ zIndex: 10, height: '100%' }}
+                  ref={pdfContainerRef}
+                  onMouseMove={handleMouseMove}
+                  onMouseUp={handleMouseUp}
+                  onMouseLeave={handleMouseUp}
                   onTouchMove={isDragging ? handleTouchMove : undefined}
                   onTouchEnd={handleTouchEnd}
                 >
-                  {sig.text}
-                  <button
-                    type="button"
-                    className="ml-2 text-xs text-red-500 bg-white bg-opacity-80 rounded-full px-1 py-0.5 shadow pointer-events-auto"
-                    style={{ zIndex: 30 }}
-                    onClick={() => removeSignature(sig.id)}
-                  >
-                    <Trash2 className="inline h-3 w-3" />
-                  </button>
+                  {signatures.filter(sig => sig.page === selectedPage).map(sig => (
+                    <div
+                      key={sig.id}
+                      className="absolute cursor-move select-none pointer-events-auto bg-white/80 rounded px-2 py-1 shadow-md border border-gray-200"
+                      style={{
+                        left: sig.x,
+                        top: sig.y,
+                        fontSize: sig.fontSize,
+                        fontFamily: sig.font,
+                        color: sig.color,
+                        userSelect: 'none',
+                        zIndex: 20,
+                        touchAction: 'none',
+                      }}
+                      onMouseDown={e => handleMouseDown(e, sig)}
+                      onTouchStart={e => handleTouchStart(e, sig)}
+                    >
+                      {sig.text}
+                      <button
+                        type="button"
+                        className="ml-2 text-xs text-red-500 bg-white bg-opacity-80 rounded-full px-1 py-0.5 shadow pointer-events-auto border border-red-200"
+                        style={{ zIndex: 30 }}
+                        onClick={() => removeSignature(sig.id)}
+                      >
+                        <Trash2 className="inline h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </div>
+            </div>
+            {/* Page navigation buttons */}
+            <div className="flex justify-center items-center gap-2 mt-4">
+              <button
+                onClick={() => setSelectedPage(p => Math.max(1, p - 1))}
+                disabled={selectedPage <= 1}
+                className="px-4 py-2 text-sm sm:text-base text-gray-600 bg-gray-100 border border-gray-300 rounded-lg hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+              >
+                Previous
+              </button>
+              <span className="text-sm sm:text-base text-gray-700 font-medium">
+                Page {selectedPage} of {numPages}
+              </span>
+              <button
+                onClick={() => setSelectedPage(p => Math.min(numPages, p + 1))}
+                disabled={selectedPage >= numPages}
+                className="px-4 py-2 text-sm sm:text-base text-gray-600 bg-gray-100 border border-gray-300 rounded-lg hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+              >
+                Next
+              </button>
             </div>
           </div>
         </div>
         {/* Controls */}
-        <div className="flex-1 flex flex-col space-y-3 sm:space-y-4">
+        <div className="flex-1 flex flex-col space-y-6 bg-white rounded-xl shadow-md border border-gray-100 p-4 sm:p-6">
+          <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">Signature Controls</h3>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Signature Text</label>
             <div className="flex items-center space-x-2">
@@ -408,20 +440,19 @@ export const SignatureEditor: React.FC<SignatureEditorProps> = ({ document, onSa
                 type="text"
                 value={signatureText}
                 onChange={(e) => setSignatureText(e.target.value)}
-                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
                 placeholder="Enter your signature"
                 maxLength={32}
               />
             </div>
           </div>
-
-          <div className="flex space-x-4">
+          <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1">
               <label className="block text-sm font-medium text-gray-700 mb-2">Font</label>
               <select
                 value={selectedFont}
                 onChange={(e) => setSelectedFont(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
               >
                 {FONT_OPTIONS.map(font => (
                   <option key={font.value} value={font.value} style={{ fontFamily: font.fontFamily }}>
@@ -435,7 +466,7 @@ export const SignatureEditor: React.FC<SignatureEditorProps> = ({ document, onSa
               <select
                 value={selectedColor}
                 onChange={(e) => setSelectedColor(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
               >
                 {COLOR_OPTIONS.map(color => (
                   <option key={color.value} value={color.value}>{color.name}</option>
@@ -443,7 +474,6 @@ export const SignatureEditor: React.FC<SignatureEditorProps> = ({ document, onSa
               </select>
             </div>
           </div>
-
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Font Size</label>
             <input
@@ -452,34 +482,31 @@ export const SignatureEditor: React.FC<SignatureEditorProps> = ({ document, onSa
               onChange={(e) => setFontSize(Number(e.target.value))}
               min={12}
               max={72}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
             />
           </div>
-
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Page</label>
             <select
               value={selectedPage}
               onChange={(e) => setSelectedPage(Number(e.target.value))}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
             >
               {Array.from({ length: numPages }, (_, i) => (
                 <option key={i+1} value={i+1}>Page {i+1}</option>
               ))}
             </select>
           </div>
-
           <button
             onClick={addSignature}
-            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 focus:ring-4 focus:ring-blue-200 transition-all"
+            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 focus:ring-4 focus:ring-blue-200 transition-all text-lg"
           >
             Add Signature
           </button>
-
           {/* List of signatures */}
           {signatures.length > 0 && (
             <div className="mt-8">
-              <h4 className="text-md font-semibold text-gray-800 mb-2">Signatures</h4>
+              <h4 className="text-lg font-semibold text-gray-800 mb-2">Signatures</h4>
               <ul className="space-y-2">
                 {signatures.map(sig => (
                   <li key={sig.id} className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
@@ -498,18 +525,16 @@ export const SignatureEditor: React.FC<SignatureEditorProps> = ({ document, onSa
               </ul>
             </div>
           )}
-
           <button
             onClick={handleSave}
-            className="mt-8 w-full bg-gradient-to-r from-green-600 to-blue-600 text-white py-3 rounded-lg font-medium hover:from-green-700 hover:to-blue-700 focus:ring-4 focus:ring-green-200 transition-all"
+            className="mt-8 w-full bg-gradient-to-r from-green-600 to-blue-600 text-white py-3 rounded-lg font-semibold hover:from-green-700 hover:to-blue-700 focus:ring-4 focus:ring-green-200 transition-all text-lg"
           >
             <Save className="h-5 w-5 inline-block mr-2" />
             Save & Sign Document
           </button>
-
           <button
             onClick={handleDownloadSignedPDF}
-            className="mt-4 w-full bg-gradient-to-r from-blue-600 to-green-600 text-white py-3 rounded-lg font-medium hover:from-blue-700 hover:to-green-700 focus:ring-4 focus:ring-blue-200 transition-all"
+            className="mt-4 w-full bg-gradient-to-r from-blue-600 to-green-600 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-green-700 focus:ring-4 focus:ring-blue-200 transition-all text-lg"
           >
             Download Signed PDF
           </button>
