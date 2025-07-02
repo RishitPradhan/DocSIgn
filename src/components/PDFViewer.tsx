@@ -61,7 +61,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
   }
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden w-full max-w-full">
+    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden w-full max-w-full max-h-[80vh] overflow-y-auto">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 border-b border-gray-200 bg-gray-50 gap-2 sm:gap-0">
         <div className="flex items-center space-x-2">

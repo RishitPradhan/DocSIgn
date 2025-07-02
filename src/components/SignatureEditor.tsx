@@ -130,7 +130,6 @@ export const SignatureEditor: React.FC<SignatureEditorProps> = ({ document, onSa
 
   // Add touch event handlers for mobile dragging
   const handleTouchStart = (e: React.TouchEvent, signature: Signature) => {
-    e.preventDefault()
     setSelectedSignature(signature)
     setIsDragging(true)
     const rect = pdfContainerRef.current?.getBoundingClientRect()
@@ -145,6 +144,8 @@ export const SignatureEditor: React.FC<SignatureEditorProps> = ({ document, onSa
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!isDragging || !selectedSignature || !pdfContainerRef.current) return
+    // Prevent scrolling when dragging a signature
+    e.preventDefault()
     const rect = pdfContainerRef.current.getBoundingClientRect()
     const fontSize = selectedSignature.fontSize
     const touch = e.touches[0]
@@ -356,13 +357,7 @@ export const SignatureEditor: React.FC<SignatureEditorProps> = ({ document, onSa
       <div className="flex flex-col lg:flex-row gap-4 sm:gap-8">
         {/* PDF Preview and Overlay */}
         <div className="flex-1 flex flex-col items-center">
-          <div ref={pdfContainerRef} className="relative w-full max-w-xs sm:max-w-md md:max-w-lg lg:max-w-xl xl:max-w-2xl aspect-[2/3] bg-gray-100 border border-gray-200 rounded-lg overflow-hidden"
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-          >
+          <div ref={pdfContainerRef} className="relative w-full max-w-xs sm:max-w-md md:max-w-lg lg:max-w-xl xl:max-w-2xl aspect-[2/3] bg-gray-100 border border-gray-200 rounded-lg overflow-hidden max-h-[80vh] overflow-y-auto">
             {/* PDF and signature overlays go here */}
             <PDFViewer url={document.original_url} title={document.name} width={500} height={600} />
             {/* Signature Overlay - absolutely positioned over the PDF */}
@@ -382,9 +377,12 @@ export const SignatureEditor: React.FC<SignatureEditorProps> = ({ document, onSa
                     color: sig.color,
                     userSelect: 'none',
                     zIndex: 20,
+                    touchAction: 'none',
                   }}
                   onMouseDown={e => handleMouseDown(e, sig)}
                   onTouchStart={e => handleTouchStart(e, sig)}
+                  onTouchMove={isDragging ? handleTouchMove : undefined}
+                  onTouchEnd={handleTouchEnd}
                 >
                   {sig.text}
                   <button
