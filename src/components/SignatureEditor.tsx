@@ -311,37 +311,27 @@ export const SignatureEditor: React.FC<SignatureEditorProps> = ({ document, onSa
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Sign Document</h1>
-          <p className="text-gray-600 mt-1">{document.name}</p>
+    <div className="w-full max-w-4xl mx-auto bg-white rounded-xl shadow-lg border border-gray-100 p-3 sm:p-6 space-y-4 sm:space-y-8">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
+        <div className="flex items-center space-x-2">
+          <Type className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
+          <h2 className="text-lg sm:text-2xl font-bold text-gray-900">Add Signature</h2>
         </div>
         <button
           onClick={onCancel}
-          className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors"
+          className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors self-end sm:self-auto"
         >
           <X className="h-6 w-6" />
         </button>
       </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* PDF Preview with Signatures */}
-        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Document Preview</h3>
-            <div className="flex items-center space-x-2">
-              <Move className="h-4 w-4 text-gray-500" />
-              <span className="text-sm text-gray-600">Drag signatures to position them</span>
-            </div>
-          </div>
-          
-          <div className="relative" style={{ width: 500, height: 600 }}>
-            {/* PDF Document */}
+      <div className="flex flex-col lg:flex-row gap-4 sm:gap-8">
+        {/* PDF Preview and Overlay */}
+        <div className="flex-1 flex flex-col items-center">
+          <div ref={pdfContainerRef} className="relative w-full max-w-xs sm:max-w-md md:max-w-lg lg:max-w-xl xl:max-w-2xl aspect-[2/3] bg-gray-100 border border-gray-200 rounded-lg overflow-hidden">
+            {/* PDF and signature overlays go here */}
             <PDFViewer url={document.original_url} title={document.name} width={500} height={600} />
             {/* Signature Overlay - absolutely positioned over the PDF */}
             <div
-              ref={pdfContainerRef}
               className="absolute top-0 left-0 w-full h-full pointer-events-none"
               style={{ zIndex: 10 }}
               onMouseMove={handleMouseMove}
@@ -374,88 +364,83 @@ export const SignatureEditor: React.FC<SignatureEditorProps> = ({ document, onSa
             </div>
           </div>
         </div>
-
-        {/* Signature Controls */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Add Signature</h3>
-          
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Signature Text</label>
-              <div className="flex items-center space-x-2">
-                <Type className="h-5 w-5 text-gray-400" />
-                <input
-                  type="text"
-                  value={signatureText}
-                  onChange={(e) => setSignatureText(e.target.value)}
-                  className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter your signature"
-                  maxLength={32}
-                />
-              </div>
-            </div>
-
-            <div className="flex space-x-4">
-              <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Font</label>
-                <select
-                  value={selectedFont}
-                  onChange={(e) => setSelectedFont(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  {FONT_OPTIONS.map(font => (
-                    <option key={font.value} value={font.value} style={{ fontFamily: font.fontFamily }}>
-                      {font.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Color</label>
-                <select
-                  value={selectedColor}
-                  onChange={(e) => setSelectedColor(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  {COLOR_OPTIONS.map(color => (
-                    <option key={color.value} value={color.value}>{color.name}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Font Size</label>
+        {/* Controls */}
+        <div className="flex-1 flex flex-col space-y-3 sm:space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Signature Text</label>
+            <div className="flex items-center space-x-2">
+              <Type className="h-5 w-5 text-gray-400" />
               <input
-                type="number"
-                value={fontSize}
-                onChange={(e) => setFontSize(Number(e.target.value))}
-                min={12}
-                max={72}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                type="text"
+                value={signatureText}
+                onChange={(e) => setSignatureText(e.target.value)}
+                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Enter your signature"
+                maxLength={32}
               />
             </div>
+          </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Page</label>
+          <div className="flex space-x-4">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Font</label>
               <select
-                value={selectedPage}
-                onChange={(e) => setSelectedPage(Number(e.target.value))}
+                value={selectedFont}
+                onChange={(e) => setSelectedFont(e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
-                {Array.from({ length: numPages }, (_, i) => (
-                  <option key={i+1} value={i+1}>Page {i+1}</option>
+                {FONT_OPTIONS.map(font => (
+                  <option key={font.value} value={font.value} style={{ fontFamily: font.fontFamily }}>
+                    {font.name}
+                  </option>
                 ))}
               </select>
             </div>
-
-            <button
-              onClick={addSignature}
-              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 focus:ring-4 focus:ring-blue-200 transition-all"
-            >
-              Add Signature
-            </button>
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Color</label>
+              <select
+                value={selectedColor}
+                onChange={(e) => setSelectedColor(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                {COLOR_OPTIONS.map(color => (
+                  <option key={color.value} value={color.value}>{color.name}</option>
+                ))}
+              </select>
+            </div>
           </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Font Size</label>
+            <input
+              type="number"
+              value={fontSize}
+              onChange={(e) => setFontSize(Number(e.target.value))}
+              min={12}
+              max={72}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Page</label>
+            <select
+              value={selectedPage}
+              onChange={(e) => setSelectedPage(Number(e.target.value))}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              {Array.from({ length: numPages }, (_, i) => (
+                <option key={i+1} value={i+1}>Page {i+1}</option>
+              ))}
+            </select>
+          </div>
+
+          <button
+            onClick={addSignature}
+            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 focus:ring-4 focus:ring-blue-200 transition-all"
+          >
+            Add Signature
+          </button>
 
           {/* List of signatures */}
           {signatures.length > 0 && (
